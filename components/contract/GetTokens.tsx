@@ -2,7 +2,7 @@
   "name": "@create-web3/frontend",
   "version": "0.1.0",
   "scripts": {
-    "build": "next build", // Modify this line if needed
+    "build": "next build",  // Modify this line if needed
     "dev": "next dev",
     "start": "next start",
     "lint": "next lint"
@@ -11,8 +11,8 @@
     "next": "14.2.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "wagmi": "^1.0.0",  // Ensure these versions match your usage
-    "@geist-ui/core": "^1.0.0",  // Ensure these versions match your usage
+    "wagmi": "^1.0.0",
+    "@geist-ui/core": "^1.0.0",
     "essential-eth": "^1.0.0",
     "jotai": "^1.0.0"
   },
@@ -23,6 +23,36 @@
     "@types/react-dom": "^18.0.0"
   }
 }
+{
+  "extends": [
+    "next",
+    "next/core-web-vitals",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended"
+  ],
+  "rules": {
+    "react/no-unescaped-entities": "off",
+    "@next/next/no-page-custom-font": "off",
+    "react/prop-types": "off",  // Example: Disable prop-types if you’re using TypeScript
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn"
+  },
+  "plugins": [
+    "react",
+    "react-hooks"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module"
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  }
+}
+// TokenRow.tsx
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useNetwork, useWaitForTransaction } from 'wagmi';
 import { Loading, Toggle } from '@geist-ui/core';
@@ -85,58 +115,4 @@ const TokenRow: React.FC<{ token: Tokens[number] }> = ({ token }) => {
   );
 };
 
-export const GetTokens: React.FC = () => {
-  const [tokens, setTokens] = useAtom(globalTokensAtom);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
-
-  const { address, isConnected } = useAccount();
-  const { chain } = useNetwork();
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      setError('');
-      const newTokens = await httpFetchTokens(
-        chain?.id as number,
-        address as string
-      );
-      setTokens(newTokens.data.erc20s);
-    } catch (error) {
-      setError(`Chain ${chain?.id} not supported. Coming soon!`);
-    }
-    setLoading(false);
-  }, [address, chain?.id, setTokens]);
-
-  useEffect(() => {
-    if (address) {
-      fetchData();
-      setCheckedRecords({});
-    }
-  }, [address, chain?.id, fetchData, setCheckedRecords]);
-
-  useEffect(() => {
-    if (!isConnected) {
-      setTokens([]);
-      setCheckedRecords({});
-    }
-  }, [isConnected, setTokens, setCheckedRecords]);
-
-  if (loading) {
-    return <Loading>Loading</Loading>;
-  }
-
-  if (error) {
-    return <div>{error}</div>;
-  }
-
-  return (
-    <div style={{ margin: '20px' }}>
-      {isConnected && tokens?.length === 0 && `No tokens on ${chain?.name}`}
-      {tokens.map((token) => (
-        <TokenRow token={token} key={token.contract_address} />
-      ))}
-    </div>
-  );
-};
+export default TokenRow;
