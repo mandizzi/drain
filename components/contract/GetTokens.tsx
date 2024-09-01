@@ -7,7 +7,7 @@ import { checkedTokensAtom } from '../../src/atoms/checked-tokens-atom';
 import { globalTokensAtom } from '../../src/atoms/global-tokens-atom';
 import { Tokens } from '../../src/fetch-tokens';
 
-// Define API URL and Chain ID from environment variables
+// Define API URL, API Key, and Chain ID from environment variables
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const COVALENT_API_KEY = process.env.COVALENT_API_KEY;
 const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
@@ -88,13 +88,17 @@ export const GetTokens: React.FC = () => {
       setError('');
       const response = await fetch(`${API_URL}?chainId=${CHAIN_ID}&address=${address}`, {
         headers: {
-          'Authorization': `Bearer ${COVALENT_API_KEY}`
-        }
+          'Authorization': `Bearer ${COVALENT_API_KEY}`,
+        },
       });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
       const newTokens = await response.json();
       setTokens(newTokens.data.erc20s);
     } catch (error) {
       setError(`Chain ${chain?.id} not supported. Coming soon!`);
+      console.error('Error fetching tokens:', error);
     }
     setLoading(false);
   }, [address, chain?.id, setTokens]);
