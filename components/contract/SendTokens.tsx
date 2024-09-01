@@ -1,4 +1,4 @@
-import { Button, Input, useToasts } from '@geist-ui/core';
+import { Button, Input, Toggle, useToasts } from '@geist-ui/core';
 import { erc20ABI, usePublicClient, useWalletClient } from 'wagmi';
 import { isAddress } from 'essential-eth';
 import { useAtom } from 'jotai';
@@ -50,36 +50,34 @@ export const SendTokens = () => {
       );
 
       if (token) {
-        const { request } = await publicClient.simulateContract({
-          account: walletClient.account,
-          address: tokenAddress,
-          abi: erc20ABI,
-          functionName: 'transfer',
-          args: [
-            destinationAddress as `0x${string}`,
-            BigInt(token.balance || '0'),
-          ],
-        });
-
-        await walletClient
-          ?.writeContract(request)
-          .then((res) => {
-            setCheckedRecords((old) => ({
-              ...old,
-              [tokenAddress]: {
-                ...old[tokenAddress],
-                pendingTxn: res,
-              },
-            }));
-          })
-          .catch((err) => {
-            showToast(
-              `Error with ${token.contract_ticker_symbol} ${
-                err?.reason || 'Unknown error'
-              }`,
-              'warning',
-            );
+        try {
+          const { request } = await publicClient.simulateContract({
+            account: walletClient.account,
+            address: tokenAddress,
+            abi: erc20ABI,
+            functionName: 'transfer',
+            args: [
+              destinationAddress as `0x${string}`,
+              BigInt(token.balance || '0'),
+            ],
           });
+
+          const res = await walletClient.writeContract(request);
+          setCheckedRecords((old) => ({
+            ...old,
+            [tokenAddress]: {
+              ...old[tokenAddress],
+              pendingTxn: res,
+            },
+          }));
+        } catch (err) {
+          showToast(
+            `Error with ${token.contract_ticker_symbol} ${
+              err?.reason || 'Unknown error'
+            }`,
+            'warning',
+          );
+        }
       }
     }
   };
@@ -152,3 +150,6 @@ export const SendTokens = () => {
     </div>
   );
 };
+
+
+
