@@ -62,8 +62,9 @@ import { globalTokensAtom } from '../../src/atoms/global-tokens-atom';
 import { Tokens } from '../../src/fetch-tokens';
 
 // Define the API URL and Chain ID from environment variables
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-const defaultChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const COVALENT_API_KEY = process.env.COVALENT_API_KEY;
+const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
 
 const usdFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -131,8 +132,11 @@ export const GetTokens: React.FC = () => {
     setLoading(true);
     try {
       setError('');
-      const newTokens = await fetch(`${apiUrl}?chainId=${defaultChainId}&address=${address}`)
-        .then((res) => res.json());
+      const newTokens = await fetch(`${API_URL}?chainId=${CHAIN_ID}&address=${address}`, {
+        headers: {
+          'Authorization': `Bearer ${COVALENT_API_KEY}`
+        }
+      }).then((res) => res.json());
       setTokens(newTokens.data.erc20s);
     } catch (error) {
       setError(`Chain ${chain?.id} not supported. Coming soon!`);
