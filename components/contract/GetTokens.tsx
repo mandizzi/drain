@@ -66,6 +66,7 @@ const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({
     </div>
   );
 };
+
 export const GetTokens = () => {
   const [tokens, setTokens] = useAtom(globalTokensAtom);
   const [loading, setLoading] = useState(false);
@@ -88,14 +89,14 @@ export const GetTokens = () => {
       setError(`Chain ${chain?.id} not supported. Coming soon!`);
     }
     setLoading(false);
-  }, [address, chain?.id]);
+  }, [address, chain?.id, setTokens]); // Added setTokens
 
   useEffect(() => {
     if (address) {
       fetchData();
       setCheckedRecords({});
     }
-  }, [address, chain?.id]);
+  }, [address, chain?.id, fetchData, setCheckedRecords]); // Added fetchData and setCheckedRecords
 
   useEffect(() => {
     if (!isConnected) {
