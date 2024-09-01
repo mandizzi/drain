@@ -1,3 +1,28 @@
+{
+  "name": "@create-web3/frontend",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "next build", // Modify this line if needed
+    "dev": "next dev",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "wagmi": "^1.0.0",  // Ensure these versions match your usage
+    "@geist-ui/core": "^1.0.0",  // Ensure these versions match your usage
+    "essential-eth": "^1.0.0",
+    "jotai": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0"
+  }
+}
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useNetwork, useWaitForTransaction } from 'wagmi';
 import { Loading, Toggle } from '@geist-ui/core';
@@ -12,19 +37,16 @@ const usdFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
 });
 
-// TokenRow Component
-const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({ token }) => {
+const TokenRow: React.FC<{ token: Tokens[number] }> = ({ token }) => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { chain } = useNetwork();
   const pendingTxn = checkedRecords[token.contract_address as `0x${string}`]?.pendingTxn;
-  
   const setTokenChecked = (tokenAddress: string, isChecked: boolean) => {
     setCheckedRecords((old) => ({
       ...old,
       [tokenAddress]: { isChecked },
     }));
   };
-
   const { address } = useAccount();
   const { balance, contract_address, contract_ticker_symbol } = token;
   const unroundedBalance = tinyBig(token.quote).div(token.quote_rate);
@@ -33,11 +55,9 @@ const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({ token })
     : unroundedBalance.gt(1000)
     ? unroundedBalance.round(2)
     : unroundedBalance.round(5);
-  
   const { isLoading } = useWaitForTransaction({
     hash: pendingTxn?.blockHash || undefined,
   });
-
   return (
     <div key={contract_address}>
       {isLoading && <Loading />}
@@ -65,8 +85,7 @@ const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({ token })
   );
 };
 
-// GetTokens Component
-export const GetTokens = () => {
+export const GetTokens: React.FC = () => {
   const [tokens, setTokens] = useAtom(globalTokensAtom);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
