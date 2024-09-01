@@ -1,59 +1,154 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useAccount, useNetwork, useWaitForTransaction } from 'wagmi';
-import { Loading, Toggle } from '@geist-ui/core';
-import { tinyBig } from 'essential-eth';
+import { Button, Input, useToasts } from '@geist-ui/core';
+import { erc20ABI, usePublicClient, useWalletClient } from 'wagmi';
+import { isAddress } from 'essential-eth';
 import { useAtom } from 'jotai';
+import { normalize } from 'viem/ens';
 import { checkedTokensAtom } from '../../src/atoms/checked-tokens-atom';
+import { destinationAddressAtom } from '../../src/atoms/destination-address-atom';
 import { globalTokensAtom } from '../../src/atoms/global-tokens-atom';
-import { Tokens } from '../../src/fetch-tokens';
 
-// Define the API URL and Chain ID from environment variables
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-const COVALENT_API_KEY = process.env.COVALENT_API_KEY;
-const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
+export const SendTokens = () => {
+  const { setToast } = useToasts();
+  const showToast = (message: string, type: any) =>
+    setToast({
+      text: message,
+      type,
+      delay: 4000,
+    });
 
-const TokenRow: React.FC<{ token: Tokens[number] }> = ({ token }) => {
+  const [tokens] = useAtom(globalTokensAtom);
+  const [destinationAddress, setDestinationAddress] = useAtom(destinationAddressAtom);
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
-  const { chain } = useNetwork();
-  const pendingTxn = checkedRecords[token.contract_address as `0x${string}`]?.pendingTxn;
 
-  const setTokenChecked = (tokenAddress: string, isChecked: boolean) => {
-    setCheckedRecords((old) => ({
-      ...old,
-      [tokenAddress]: { isChecked },
-    }));
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+
+  const sendAllCheckedTokens = async () => {
+    const tokensToSend: ReadonlyArray<`0x${string}`> = Object.entries(checkedRecords)
+      .filter(([tokenAddress, { isChecked }]) => isChecked)
+      .map(([tokenAddress]) => tokenAddress as `0x${string}`);
+
+    if (!walletClient || !destinationAddress) return;
+
+    if (destinationAddress.includes('.')) {
+      const resolvedDestinationAddress = await publicClient.getEnsAddress({
+        name: normalize(destinationAddress),
+      });
+      if (resolvedDestinationAddress) {
+        setDestinationAddress(resolvedDestinationAddress);
+      }
+      return;
+    }
+
+    for (const tokenAddress of tokensToSend) {
+      const token = tokens.find(
+        (token) => token.contract_address === tokenAddress,
+      );
+
+      if (token) {
+        const { request } = await publicClient.simulateContract({
+          account: walletClient.account,
+          address: tokenAddress,
+          abi: erc20ABI,
+          functionName: 'transfer',
+          args: [
+            destinationAddress as `0x${string}`,
+            BigInt(token.balance || '0'),
+          ],
+        });
+
+        await walletClient
+          ?.writeContract(request)
+          .then((res) => {
+            setCheckedRecords((old) => ({
+              ...old,
+              [tokenAddress]: {
+                ...old[tokenAddress],
+                pendingTxn: res,
+              },
+            }));
+          })
+          .catch((err) => {
+            showToast(
+              `Error with ${token.contract_ticker_symbol} ${
+                err?.reason || 'Unknown error'
+              }`,
+              'warning',
+            );
+          });
+      }
+    }
   };
 
-  const { address } = useAccount();
-  const { balance, contract_address, contract_ticker_symbol } = token;
-  const unroundedBalance = tinyBig(token.quote).div(token.quote_rate);
-  const roundedBalance = unroundedBalance.lt(0.001)
-    ? unroundedBalance.round(10)
-    : unroundedBalance.gt(1000)
-    ? unroundedBalance.round(2)
-    : unroundedBalance.round(5);
+  const addressAppearsValid: boolean =
+    typeof destinationAddress === 'string' &&
+    (destinationAddress.includes('.') || isAddress(destinationAddress));
 
-  const { isLoading } = useWaitForTransaction({
-    hash: pendingTxn?.blockHash || undefined,
-  });
+  const checkedCount = Object.values(checkedRecords).filter(
+    (record) => record.isChecked,
+  ).length;
 
   return (
-    <div key={contract_address} style={{ display: 'flex', alignItems: 'center' }}>
-      <Toggle
-        checked={checkedRecords[token.contract_address]?.isChecked || false}
-        onChange={(e) => setTokenChecked(token.contract_address, e.target.checked)}
-      />
-      <span style={{ marginLeft: '10px' }}>{contract_ticker_symbol}</span>
-      <span style={{ marginLeft: '10px' }}>{roundedBalance.toString()}</span>
-      <span style={{ marginLeft: '10px' }}>{usdFormatter.format(token.quote)}</span>
-      {isLoading && <Loading style={{ marginLeft: '10px' }} />}
+    <div style={{ margin: '20px' }}>
+      <form>
+        <label>
+          Destination Address:
+          <Input
+            id="destination-address"
+            name="destinationAddress"
+            required
+            value={destinationAddress}
+            placeholder="vitalik.eth"
+            onChange={(e) => setDestinationAddress(e.target.value)}
+            type={
+              addressAppearsValid
+                ? 'success'
+                : destinationAddress.length > 0
+                ? 'warning'
+                : 'default'
+            }
+            width="100%"
+            style={{
+              marginLeft: '10px',
+              marginRight: '10px',
+            }}
+          />
+        </label>
+        {tokens.map((token) => (
+          <div
+            key={token.contract_address}
+            style={{ display: 'flex', alignItems: 'center' }}
+          >
+            <Toggle
+              checked={
+                checkedRecords[token.contract_address as `0x${string}`]?.isChecked || false
+              }
+              onChange={(e) => setCheckedRecords((old) => ({
+                ...old,
+                [token.contract_address as `0x${string}`]: {
+                  ...old[token.contract_address as `0x${string}`],
+                  isChecked: e.target.checked,
+                },
+              }))}
+            />
+            <span style={{ marginLeft: '10px' }}>{token.contract_ticker_symbol}</span>
+          </div>
+        ))}
+        <Button
+          type="secondary"
+          onClick={sendAllCheckedTokens}
+          disabled={!addressAppearsValid}
+          style={{ marginTop: '20px' }}
+        >
+          {checkedCount === 0
+            ? 'Select one or more tokens above'
+            : `Send ${checkedCount} tokens`}
+        </Button>
+      </form>
     </div>
   );
 };
-
-export default TokenRow;
