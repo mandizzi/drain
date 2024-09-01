@@ -52,7 +52,6 @@
     }
   }
 }
-// TokenRow.tsx
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useNetwork, useWaitForTransaction } from 'wagmi';
 import { Loading, Toggle } from '@geist-ui/core';
@@ -60,7 +59,11 @@ import { tinyBig } from 'essential-eth';
 import { useAtom } from 'jotai';
 import { checkedTokensAtom } from '../../src/atoms/checked-tokens-atom';
 import { globalTokensAtom } from '../../src/atoms/global-tokens-atom';
-import { httpFetchTokens, Tokens } from '../../src/fetch-tokens';
+import { Tokens } from '../../src/fetch-tokens';
+
+// Define the API URL and Chain ID from environment variables
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+const defaultChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
 
 const usdFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -115,4 +118,56 @@ const TokenRow: React.FC<{ token: Tokens[number] }> = ({ token }) => {
   );
 };
 
-export default TokenRow;
+export const GetTokens: React.FC = () => {
+  const [tokens, setTokens] = useAtom(globalTokensAtom);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
+
+  const { address, isConnected } = useAccount();
+  const { chain } = useNetwork();
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      setError('');
+      const newTokens = await fetch(`${apiUrl}?chainId=${defaultChainId}&address=${address}`)
+        .then((res) => res.json());
+      setTokens(newTokens.data.erc20s);
+    } catch (error) {
+      setError(`Chain ${chain?.id} not supported. Coming soon!`);
+    }
+    setLoading(false);
+  }, [address, chain?.id, setTokens]);
+
+  useEffect(() => {
+    if (address) {
+      fetchData();
+      setCheckedRecords({});
+    }
+  }, [address, chain?.id, fetchData, setCheckedRecords]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      setTokens([]);
+      setCheckedRecords({});
+    }
+  }, [isConnected, setTokens, setCheckedRecords]);
+
+  if (loading) {
+    return <Loading>Loading</Loading>;
+  }
+
+  if (error) {
+    return <div>{error}</div>;
+  }
+
+  return (
+    <div style={{ margin: '20px' }}>
+      {isConnected && tokens?.length === 0 && `No tokens on ${chain?.name}`}
+      {tokens.map((token) => (
+        <TokenRow token={token} key={token.contract_address} />
+      ))}
+    </div>
+  );
+};
