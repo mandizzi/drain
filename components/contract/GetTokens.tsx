@@ -7,23 +7,17 @@ import { checkedTokensAtom } from '../../src/atoms/checked-tokens-atom';
 import { globalTokensAtom } from '../../src/atoms/global-tokens-atom';
 import { httpFetchTokens, Tokens } from '../../src/fetch-tokens';
 
-// Currency formatter
 const usdFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
 });
 
-// TokenRow component
-const TokenRow: React.FC<{ token: Tokens[number] }> = ({ token }) => {
+// TokenRow Component
+const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({ token }) => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { chain } = useNetwork();
-  const { address } = useAccount();
-
   const pendingTxn = checkedRecords[token.contract_address as `0x${string}`]?.pendingTxn;
-  const { isLoading } = useWaitForTransaction({
-    hash: pendingTxn?.blockHash || undefined,
-  });
-
+  
   const setTokenChecked = (tokenAddress: string, isChecked: boolean) => {
     setCheckedRecords((old) => ({
       ...old,
@@ -31,21 +25,24 @@ const TokenRow: React.FC<{ token: Tokens[number] }> = ({ token }) => {
     }));
   };
 
+  const { address } = useAccount();
   const { balance, contract_address, contract_ticker_symbol } = token;
-
-  // Calculate and round the token balance
   const unroundedBalance = tinyBig(token.quote).div(token.quote_rate);
   const roundedBalance = unroundedBalance.lt(0.001)
     ? unroundedBalance.round(10)
     : unroundedBalance.gt(1000)
     ? unroundedBalance.round(2)
     : unroundedBalance.round(5);
+  
+  const { isLoading } = useWaitForTransaction({
+    hash: pendingTxn?.blockHash || undefined,
+  });
 
   return (
-    <div key={contract_address} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+    <div key={contract_address}>
       {isLoading && <Loading />}
       <Toggle
-        checked={checkedRecords[contract_address as `0x${string}`]?.isChecked || false}
+        checked={checkedRecords[contract_address as `0x${string}`]?.isChecked}
         onChange={(e) => {
           setTokenChecked(contract_address, e.target.checked);
         }}
@@ -68,32 +65,33 @@ const TokenRow: React.FC<{ token: Tokens[number] }> = ({ token }) => {
   );
 };
 
-// GetTokens component
-export const GetTokens: React.FC = () => {
+// GetTokens Component
+export const GetTokens = () => {
   const [tokens, setTokens] = useAtom(globalTokensAtom);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
 
   const { address, isConnected } = useAccount();
   const { chain } = useNetwork();
 
   const fetchData = useCallback(async () => {
-    if (!chain?.id || !address) return;
-
     setLoading(true);
     try {
       setError('');
-      const newTokens = await httpFetchTokens(chain.id, address);
+      const newTokens = await httpFetchTokens(
+        chain?.id as number,
+        address as string
+      );
       setTokens(newTokens.data.erc20s);
     } catch (error) {
-      setError(`Chain ${chain.id} not supported. Coming soon!`);
+      setError(`Chain ${chain?.id} not supported. Coming soon!`);
     }
     setLoading(false);
   }, [address, chain?.id, setTokens]);
 
   useEffect(() => {
-    if (address && chain?.id) {
+    if (address) {
       fetchData();
       setCheckedRecords({});
     }
@@ -116,7 +114,7 @@ export const GetTokens: React.FC = () => {
 
   return (
     <div style={{ margin: '20px' }}>
-      {isConnected && tokens.length === 0 && `No tokens on ${chain?.name}`}
+      {isConnected && tokens?.length === 0 && `No tokens on ${chain?.name}`}
       {tokens.map((token) => (
         <TokenRow token={token} key={token.contract_address} />
       ))}
