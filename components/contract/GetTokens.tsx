@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useNetwork, useWaitForTransaction } from 'wagmi';
+
 import { Loading, Toggle } from '@geist-ui/core';
 import { tinyBig } from 'essential-eth';
 import { useAtom } from 'jotai';
@@ -12,37 +13,37 @@ const usdFormatter = new Intl.NumberFormat('en-US', {
   currency: 'USD',
 });
 
-const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({ token }) => {
+const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({
+  token,
+}) => {
   const [checkedRecords, setCheckedRecords] = useAtom(checkedTokensAtom);
   const { chain } = useNetwork();
-  const pendingTxn = checkedRecords[token.contract_address as `0x${string}`]?.pendingTxn;
-  const { address } = useAccount();
-  
+  const pendingTxn =
+    checkedRecords[token.contract_address as `0x${string}`]?.pendingTxn;
   const setTokenChecked = (tokenAddress: string, isChecked: boolean) => {
     setCheckedRecords((old) => ({
       ...old,
-      [tokenAddress]: { isChecked },
+      [tokenAddress]: { isChecked: isChecked },
     }));
   };
-
+  const { address } = useAccount();
+  const { balance, contract_address, contract_ticker_symbol } = token;
   const unroundedBalance = tinyBig(token.quote).div(token.quote_rate);
   const roundedBalance = unroundedBalance.lt(0.001)
     ? unroundedBalance.round(10)
     : unroundedBalance.gt(1000)
       ? unroundedBalance.round(2)
       : unroundedBalance.round(5);
-
-  const { isLoading } = useWaitForTransaction({
+  const { isLoading, isSuccess } = useWaitForTransaction({
     hash: pendingTxn?.blockHash || undefined,
   });
-
   return (
-    <div key={token.contract_address}>
+    <div key={contract_address}>
       {isLoading && <Loading />}
       <Toggle
-        checked={checkedRecords[token.contract_address as `0x${string}`]?.isChecked}
+        checked={checkedRecords[contract_address as `0x${string}`]?.isChecked}
         onChange={(e) => {
-          setTokenChecked(token.contract_address, e.target.checked);
+          setTokenChecked(contract_address, e.target.checked);
         }}
         style={{ marginRight: '18px' }}
         disabled={Boolean(pendingTxn)}
@@ -55,7 +56,7 @@ const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({ token })
         target="_blank"
         rel="noreferrer"
       >
-        {token.contract_ticker_symbol}
+        {contract_ticker_symbol}
       </a>{' '}
       (worth{' '}
       <span style={{ fontFamily: 'monospace' }}>
@@ -65,7 +66,6 @@ const TokenRow: React.FunctionComponent<{ token: Tokens[number] }> = ({ token })
     </div>
   );
 };
-
 export const GetTokens = () => {
   const [tokens, setTokens] = useAtom(globalTokensAtom);
   const [loading, setLoading] = useState(false);
@@ -77,33 +77,35 @@ export const GetTokens = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
-      const newTokens = await httpFetchTokens(chain?.id as number, address as string);
-      setTokens(newTokens.data.erc20s);
+      setError('');
+      const newTokens = await httpFetchTokens(
+        chain?.id as number,
+        address as string,
+      );
+      setTokens((newTokens as any).data.erc20s);
     } catch (error) {
-      setError(`Chain ${chain?.id} not supported or an error occurred.`);
-    } finally {
-      setLoading(false);
+      setError(`Chain ${chain?.id} not supported. Coming soon!`);
     }
-  }, [address, chain?.id, setTokens]);
+    setLoading(false);
+  }, [address, chain?.id]);
 
   useEffect(() => {
     if (address) {
       fetchData();
       setCheckedRecords({});
     }
-  }, [address, chain?.id, fetchData, setCheckedRecords]);
+  }, [address, chain?.id]);
 
   useEffect(() => {
     if (!isConnected) {
       setTokens([]);
       setCheckedRecords({});
     }
-  }, [isConnected, setTokens, setCheckedRecords]);
+  }, [isConnected]);
 
   if (loading) {
-    return <Loading>Loading...</Loading>;
+    return <Loading>Loading</Loading>;
   }
 
   if (error) {
@@ -112,10 +114,15 @@ export const GetTokens = () => {
 
   return (
     <div style={{ margin: '20px' }}>
-      {isConnected && tokens.length === 0 && `No tokens on ${chain?.name}`}
+      {isConnected && tokens?.length === 0 && `No tokens on ${chain?.name}`}
       {tokens.map((token) => (
         <TokenRow token={token} key={token.contract_address} />
       ))}
+      {/* {isConnected && (
+        <Button style={{ marginLeft: '20px' }} onClick={() => fetchData()}>
+          Refetch
+        </Button>
+      )} */}
     </div>
   );
 };
