@@ -1,7 +1,7 @@
 {
   "name": "@create-web3/frontend",
   "version": "0.1.0",
-  "description": "",
+  "description": "Frontend for the Create Web3 project",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -45,8 +45,9 @@
     "singleQuote": true
   },
   "lint-staged": {
-    "*": [
-      "prettier -u --write"
+    "*.{js,ts,jsx,tsx}": [
+      "prettier --write",
+      "eslint --fix"
     ]
   }
 }
