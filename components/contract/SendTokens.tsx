@@ -44,7 +44,6 @@ export const SendTokens = () => {
       return;
     }
 
-    // Hack to ensure resolving the ENS name above completes
     for (const tokenAddress of tokensToSend) {
       const token = tokens.find(
         (token) => token.contract_address === tokenAddress,
