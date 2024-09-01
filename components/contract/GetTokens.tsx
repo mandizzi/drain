@@ -89,21 +89,21 @@ export const GetTokens = () => {
       setError(`Chain ${chain?.id} not supported. Coming soon!`);
     }
     setLoading(false);
-  }, [address, chain?.id, setTokens]); // Added setTokens
+  }, [address, chain?.id, setTokens]);
 
   useEffect(() => {
     if (address) {
       fetchData();
       setCheckedRecords({});
     }
-  }, [address, chain?.id, fetchData, setCheckedRecords]); // Added fetchData and setCheckedRecords
+  }, [address, chain?.id, fetchData, setCheckedRecords]);
 
   useEffect(() => {
     if (!isConnected) {
       setTokens([]);
       setCheckedRecords({});
     }
-  }, [isConnected]);
+  }, [isConnected, setTokens, setCheckedRecords]);
 
   if (loading) {
     return <Loading>Loading</Loading>;
